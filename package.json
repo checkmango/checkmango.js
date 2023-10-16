@@ -1,18 +1,18 @@
 {
   "name": "@checkmango/checkmango.js",
   "description": "The official Checkmango Javascript SDK.",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "author": "Checkmango",
   "license": "MIT",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
-  "homepage": "https://github.com/checkmango/js-sdk",
+  "homepage": "https://github.com/checkmango/checkmango.js",
   "repository": {
     "type": "git",
-    "url": "https://github.com/checkmango/js-sdk.git"
+    "url": "https://github.com/checkmango/checkmango.js.git"
   },
   "bugs": {
-    "url": "https://github.com/checkmango/js-sdk/issues"
+    "url": "https://github.com/checkmango/checkmango.js/issues"
   },
   "keywords": [
     "api",
