@@ -4,6 +4,8 @@
 
 This is the official JavaScript SDK for [Checkmango](https://checkmango.com). It provides convenient access to the Checkmango API for applications written in JavaScript.
 
+Thank you to [🍋 `@lemonsqueezy/lemonsqueezy.js`](https://github.com/lmsqueezy/lemonsqueezy.js) for providing a solid starting point for this package. 
+
 ## Installation
 
 ### Installing the package
