@@ -1,7 +1,7 @@
 {
   "name": "@checkmango/checkmango.js",
   "description": "The official Checkmango Javascript SDK.",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "author": "Checkmango",
   "license": "MIT",
   "main": "dist/index.js",
