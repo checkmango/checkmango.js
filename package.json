@@ -1,0 +1,38 @@
+{
+  "name": "@checkmango/checkmango.js",
+  "description": "The official Checkmango Javascript SDK.",
+  "version": "0.0.1",
+  "author": "Checkmango",
+  "license": "MIT",
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "homepage": "https://github.com/checkmango/js-sdk",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/checkmango/js-sdk.git"
+  },
+  "bugs": {
+    "url": "https://github.com/checkmango/js-sdk/issues"
+  },
+  "keywords": [
+    "api",
+    "checkmango",
+    "javascript",
+    "typescript"
+  ],
+  "files": [
+    "./dist/*",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "prepublishOnly": "npm run build"
+  },
+  "devDependencies": {
+    "@types/node": "^20.4.5",
+    "tsup": "^7.1.0",
+    "typescript": "^5.1.6"
+  },
+  "type": "module"
+}
