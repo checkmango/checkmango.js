@@ -1,145 +1,179 @@
-import {
-    EventResponse,
-    EventsResponse,
-    ExperimentResponse,
-    ExperimentsResponse,
-    IngestOptions,
-    ParticipantResponse,
-    ParticipantsResponse,
-    TeamResponse,
-    TeamsResponse,
-    UserResponse,
-    VariantResponse,
-    VariantsResponse,
-} from './types/api'
-
-import {
+import type {
     CreateEventOptions,
     CreateExperimentOptions,
+    CreateFeatureOptions,
     CreateParticipantOptions,
     CreateVariantOptions,
     DeleteEventOptions,
     DeleteExperimentOptions,
+    DeleteFeatureOptions,
+    DeleteParticipantAttributesOptions,
     DeleteParticipantOptions,
     DeleteVariantOptions,
+    GetEventOptions,
     GetExperimentOptions,
+    GetFeatureOptions,
+    GetOrganizationOptions,
+    GetParticipantExperimentOptions,
     GetParticipantOptions,
     GetTeamOptions,
     GetVariantOptions,
+    GetVariantStatisticsOptions,
     ListEventsOptions,
     ListExperimentsOptions,
+    ListFeaturesOptions,
+    ListOrganizationsOptions,
+    ListParticipantAttributesOptions,
+    ListParticipantExperimentsOptions,
     ListParticipantsOptions,
     ListTeamsOptions,
     ListVariantsOptions,
     QueryApiOptions,
     StartExperimentOptions,
     StopExperimentOptions,
+    UnenrolParticipantOptions,
     UpdateEventOptions,
     UpdateExperimentOptions,
+    UpdateFeatureOptions,
+    UpdateParticipantAttributesOptions,
     UpdateParticipantOptions,
     UpdateVariantOptions,
 } from "./types/methods";
+import type {
+    EnrollmentsResponse,
+    EventResponse,
+    EventsResponse,
+    ExperimentResponse,
+    ExperimentsResponse,
+    FeatureResponse,
+    FeaturesResponse,
+    HealthResponse,
+    IngestOptions,
+    OrganizationConfigResponse,
+    OrganizationResponse,
+    OrganizationsResponse,
+    ParticipantAttributesResponse,
+    ParticipantResponse,
+    ParticipantsResponse,
+    TeamResponse,
+    TeamsResponse,
+    UserResponse,
+    VariantResponse,
+    VariantStatisticResponse,
+    VariantsResponse,
+} from "./types/api";
+
+import { CheckmangoError } from "./error";
 
 export class Checkmango {
     public apiKey: string;
 
     public apiUrl = "https://checkmango.com/api/";
 
-    public teamId: number;
+    public organizationId: number | string;
+
+    /** @deprecated Use organizationId. */
+    get teamId(): number | string {
+        return this.organizationId;
+    }
+    set teamId(value: number | string) {
+        this.organizationId = value;
+    }
 
     /**
      * Checkmango API Client.
      *
      * @param {String} apiKey - Your Checkmango API Key.
-     * @param {Number} teamId - Your Checkmango Team ID.
+     * @param {Number | String} organizationId - Your Checkmango organization ID.
      */
-    constructor(apiKey: string, teamId: number) {
+    constructor(apiKey: string, organizationId: number | string) {
         this.apiKey = apiKey;
-        this.teamId = teamId;
+        this.organizationId = organizationId;
     }
 
     /**
      * Builds a params object for the API query based on provided and allowed filters.
      *
-     * @params {Object} [args] Arguments to the API method
-     * @params {string[]} [allowedFilters] List of filters the API query permits (camelCase)
+     * @param {Object} [args] Arguments to the API method
+     * @param {string[]} [allowedFilters] List of filters the API query permits (API field names)
      */
-    private _buildParams<TArgs extends Record<string, any>>(
-        args: TArgs,
-        allowedFilters: Array<string> = []
-    ): Record<string, unknown> {
-        let params: Record<string, unknown> = {};
-
-        for (let filter in args) {
-            if (allowedFilters.includes(filter)) {
-                const queryFilter = filter.replace(
-                    /[A-Z]/g,
-                    (letter) => `_${letter.toLowerCase()}`
-                );
-
-                params["filter[" + queryFilter + "]"] = args[filter];
-            } else {
-                if (filter === "include") {
-                    params["include"] = Array.isArray(args[filter])
-                        ? args[filter].join(",")
-                        : args[filter];
-                }
-
-                if (filter === "page") params["page"] = args[filter];
-                if (filter === "perPage") params["per_page"] = args[filter];
+    private _buildParams(
+        args: object,
+        allowedFilters: string[] = [],
+    ): Record<string, string> {
+        const params: Record<string, string> = {};
+        for (const [key, value] of Object.entries(args)) {
+            if (value === undefined || value === null) continue;
+            if (allowedFilters.includes(key)) {
+                params[`filter[${key}]`] = String(value);
+            } else if (key === "include" || key === "sort") {
+                const values = Array.isArray(value) ? value : [value];
+                params[key] = values
+                    .map((item) =>
+                        key === "include" && item === "team"
+                            ? "organization"
+                            : item,
+                    )
+                    .join(",");
+            } else if (
+                key === "page" ||
+                key === "perPage" ||
+                key === "event_key"
+            ) {
+                params[key === "perPage" ? "per_page" : key] = String(value);
             }
         }
-
         return params;
     }
 
-    /**
-     * Send an API query to the LemonSqueezy API
-     *
-     * @param {string} path
-     * @param {string} [method] POST, GET, PUT, DELETE
-     * @param {Object} [params] URL query parameters
-     * @param {Object} [payload] Object/JSON payload
-     *
-     * @returns {Object} JSON
-     */
-    private async _query({
+    /** Send a request to the Checkmango API. */
+    private async _query<T>({
         path,
         method = "GET",
         params,
         payload,
-    }: QueryApiOptions) {
-        try {
-            const url = new URL(path, this.apiUrl);
-            if (params && method === "GET")
-                Object.entries(params).forEach(([key, value]) =>
-                    url.searchParams.append(key, value)
-                );
-
-            const headers = new Headers();
-            headers.set("Accept", "application/vnd.api+json");
-            headers.set("Authorization", `Bearer ${this.apiKey}`);
-            headers.set("Content-Type", "application/vnd.api+json");
-
-            const response = await fetch(url.href, {
-                headers,
-                method,
-                body: payload ? JSON.stringify(payload) : undefined,
-            });
-
-            if (!response.ok) {
-                let errorsJson = await response.json();
-                throw {
-                    status: response.status,
-                    message: response.statusText,
-                    errors: errorsJson.errors,
-                };
-            }
-
-            if (method !== "DELETE") return await response.json();
-        } catch (error) {
-            throw error;
+    }: QueryApiOptions): Promise<T> {
+        const url = new URL(
+            path,
+            this.apiUrl.endsWith("/") ? this.apiUrl : `${this.apiUrl}/`,
+        );
+        for (const [key, value] of Object.entries(params ?? {})) {
+            url.searchParams.set(key, value);
         }
+        const response = await fetch(url, {
+            method,
+            headers: {
+                Accept: "application/vnd.api+json",
+                Authorization: `Bearer ${this.apiKey}`,
+                "Content-Type": "application/json",
+            },
+            body: payload === undefined ? undefined : JSON.stringify(payload),
+            redirect: "error",
+        });
+        const text = await response.text();
+        let body: unknown;
+        if (text.trim()) {
+            try {
+                body = JSON.parse(text);
+            } catch (error) {
+                if (response.ok) throw error;
+            }
+        }
+        if (!response.ok) {
+            const details =
+                body && typeof body === "object"
+                    ? (body as Record<string, unknown>)
+                    : {};
+            throw new CheckmangoError(
+                response.status,
+                typeof details.message === "string"
+                    ? details.message
+                    : response.statusText || `HTTP ${response.status}`,
+                details.errors,
+                body ?? text,
+            );
+        }
+        return body as T;
     }
 
     /**
@@ -152,7 +186,8 @@ export class Checkmango {
     }
 
     /**
-     * List teams.
+     * List organizations.
+     * @deprecated Use listOrganizations().
      *
      * @param {Object} [params]
      * @param {Number} [params.page] The page number to retrieve.
@@ -162,13 +197,14 @@ export class Checkmango {
      */
     async listTeams(params: ListTeamsOptions = {}): Promise<TeamsResponse> {
         return this._query({
-            path: "teams",
+            path: "organizations",
             params: this._buildParams(params),
         });
     }
 
     /**
-     * Get a team.
+     * Get an organization.
+     * @deprecated Use getOrganization().
      *
      * @param {Object} [params]
      * @param {Number} [params.id] The ID of the team to retrieve.
@@ -178,19 +214,20 @@ export class Checkmango {
      */
     async getTeam({ id, ...params }: GetTeamOptions): Promise<TeamResponse> {
         return this._query({
-            path: `teams/${id}`,
+            path: `organizations/${encodeURIComponent(id)}`,
             params: this._buildParams(params),
         });
     }
 
     /**
-     * Get the current team.
+     * Get the current organization.
+     * @deprecated Use getCurrentOrganization().
      *
      * @returns {Object} JSON
      */
     async getCurrentTeam(): Promise<TeamResponse> {
         return this._query({
-            path: "current-team",
+            path: "current-organization",
         });
     }
 
@@ -203,16 +240,11 @@ export class Checkmango {
      * @param {String} [params.variant] The variant to ingest data into.
      * @param {String?} [params.event] The event to ingest data into.
      */
-    async ingest({experiment, variant, participant, event}: IngestOptions): Promise<void> {
+    async ingest(params: IngestOptions): Promise<void> {
         return this._query({
-            path: `teams/${this.teamId}/ingest`,
+            path: `organizations/${encodeURIComponent(this.organizationId)}/ingest`,
             method: "POST",
-            payload: {
-                experiment: experiment,
-                participant: participant,
-                variant: variant,
-                event: event,
-            },
+            payload: params,
         });
     }
 
@@ -225,10 +257,12 @@ export class Checkmango {
      *
      * @returns {Object} JSON
      */
-    async listExperiments(params: ListExperimentsOptions = {}): Promise<ExperimentsResponse> {
+    async listExperiments(
+        params: ListExperimentsOptions = {},
+    ): Promise<ExperimentsResponse> {
         return this._query({
-            path: `teams/${this.teamId}/experiments`,
-            params: this._buildParams(params),
+            path: `organizations/${encodeURIComponent(this.organizationId)}/experiments`,
+            params: this._buildParams(params, ["status"]),
         });
     }
 
@@ -236,14 +270,17 @@ export class Checkmango {
      * Get an experiment.
      *
      * @param {Object} [params]
-     * @param {Number} [params.key] The key of the experiment to retrieve.
+     * @param {String} [params.key] The key of the experiment to retrieve.
      * @param {Array} [params.include] The relationships to include in the response.
      *
      * @returns {Object} JSON
      */
-    async getExperiment({ key, ...params }: GetExperimentOptions): Promise<ExperimentResponse> {
+    async getExperiment({
+        key,
+        ...params
+    }: GetExperimentOptions): Promise<ExperimentResponse> {
         return this._query({
-            path: `teams/${this.teamId}/experiments/${key}`,
+            path: `organizations/${encodeURIComponent(this.organizationId)}/experiments/${encodeURIComponent(key)}`,
             params: this._buildParams(params),
         });
     }
@@ -258,12 +295,16 @@ export class Checkmango {
      *
      * @returns {Object} JSON
      */
-    async createExperiment(params: CreateExperimentOptions): Promise<ExperimentResponse> {
+    async createExperiment({
+        event,
+        event_key,
+        ...params
+    }: CreateExperimentOptions): Promise<ExperimentResponse> {
         return this._query({
-            method: 'POST',
-            path: `teams/${this.teamId}/experiments`,
-            payload: params,
-        })
+            method: "POST",
+            path: `organizations/${encodeURIComponent(this.organizationId)}/experiments`,
+            payload: { ...params, event_key: event_key ?? event },
+        });
     }
 
     /**
@@ -277,12 +318,17 @@ export class Checkmango {
      *
      * @returns {Object} JSON
      */
-    async updateExperiment({ experiment, ...params }: UpdateExperimentOptions): Promise<ExperimentResponse> {
+    async updateExperiment({
+        experiment,
+        event,
+        event_key,
+        ...params
+    }: UpdateExperimentOptions): Promise<ExperimentResponse> {
         return this._query({
-            method: 'PUT',
-            path: `teams/${this.teamId}/experiments/${experiment}`,
-            payload: params,
-        })
+            method: "PUT",
+            path: `organizations/${encodeURIComponent(this.organizationId)}/experiments/${encodeURIComponent(experiment)}`,
+            payload: { ...params, event_key: event_key ?? event },
+        });
     }
 
     /**
@@ -295,9 +341,9 @@ export class Checkmango {
      */
     async deleteExperiment({ key }: DeleteExperimentOptions): Promise<void> {
         return this._query({
-            method: 'DELETE',
-            path: `teams/${this.teamId}/experiments/${key}`,
-        })
+            method: "DELETE",
+            path: `organizations/${encodeURIComponent(this.organizationId)}/experiments/${encodeURIComponent(key)}`,
+        });
     }
 
     /**
@@ -308,11 +354,13 @@ export class Checkmango {
      *
      * @returns {Object} JSON
      */
-    async startExperiment({ key }: StartExperimentOptions): Promise<ExperimentResponse> {
+    async startExperiment({
+        key,
+    }: StartExperimentOptions): Promise<ExperimentResponse> {
         return this._query({
-            method: 'POST',
-            path: `teams/${this.teamId}/experiments/${key}/start`,
-        })
+            method: "POST",
+            path: `organizations/${encodeURIComponent(this.organizationId)}/experiments/${encodeURIComponent(key)}/start`,
+        });
     }
 
     /**
@@ -323,11 +371,13 @@ export class Checkmango {
      *
      * @returns {Object} JSON
      */
-    async stopExperiment({ key }: StopExperimentOptions): Promise<ExperimentResponse> {
+    async stopExperiment({
+        key,
+    }: StopExperimentOptions): Promise<ExperimentResponse> {
         return this._query({
-            method: 'POST',
-            path: `teams/${this.teamId}/experiments/${key}/stop`,
-        })
+            method: "POST",
+            path: `organizations/${encodeURIComponent(this.organizationId)}/experiments/${encodeURIComponent(key)}/stop`,
+        });
     }
 
     /**
@@ -339,9 +389,11 @@ export class Checkmango {
      *
      * @returns {Object} JSON
      */
-    async listParticipants(params: ListParticipantsOptions): Promise<ParticipantsResponse> {
+    async listParticipants(
+        params: ListParticipantsOptions = {},
+    ): Promise<ParticipantsResponse> {
         return this._query({
-            path: `teams/${this.teamId}/participants`,
+            path: `organizations/${encodeURIComponent(this.organizationId)}/participants`,
             params: this._buildParams(params),
         });
     }
@@ -350,14 +402,17 @@ export class Checkmango {
      * Get a participant.
      *
      * @param {Object} [params]
-     * @param {Number} [params.key] The key of the participant to retrieve.
+     * @param {String} [params.key] The key of the participant to retrieve.
      * @param {Array} [params.include] The relationships to include in the response.
      *
      * @returns {Object} JSON
      */
-    async getParticipant({ key, ...params }: GetParticipantOptions): Promise<ParticipantResponse> {
+    async getParticipant({
+        key,
+        ...params
+    }: GetParticipantOptions): Promise<ParticipantResponse> {
         return this._query({
-            path: `teams/${this.teamId}/participants/${key}`,
+            path: `organizations/${encodeURIComponent(this.organizationId)}/participants/${encodeURIComponent(key)}`,
             params: this._buildParams(params),
         });
     }
@@ -371,12 +426,14 @@ export class Checkmango {
      *
      * @returns {Object} JSON
      */
-    async createParticipant(params: CreateParticipantOptions): Promise<ParticipantResponse> {
+    async createParticipant(
+        params: CreateParticipantOptions,
+    ): Promise<ParticipantResponse> {
         return this._query({
-            method: 'POST',
-            path: `teams/${this.teamId}/participants`,
+            method: "POST",
+            path: `organizations/${encodeURIComponent(this.organizationId)}/participants`,
             payload: params,
-        })
+        });
     }
 
     /**
@@ -389,12 +446,15 @@ export class Checkmango {
      *
      * @returns {Object} JSON
      */
-    async updateParticipant({ participant, ...params }: UpdateParticipantOptions): Promise<ParticipantResponse> {
+    async updateParticipant({
+        participant,
+        ...params
+    }: UpdateParticipantOptions): Promise<ParticipantResponse> {
         return this._query({
-            method: 'PUT',
-            path: `teams/${this.teamId}/participants/${participant}`,
+            method: "PUT",
+            path: `organizations/${encodeURIComponent(this.organizationId)}/participants/${encodeURIComponent(participant)}`,
             payload: params,
-        })
+        });
     }
 
     /**
@@ -407,9 +467,9 @@ export class Checkmango {
      */
     async deleteParticipant({ key }: DeleteParticipantOptions): Promise<void> {
         return this._query({
-            method: 'DELETE',
-            path: `teams/${this.teamId}/participants/${key}`,
-        })
+            method: "DELETE",
+            path: `organizations/${encodeURIComponent(this.organizationId)}/participants/${encodeURIComponent(key)}`,
+        });
     }
 
     /**
@@ -422,9 +482,12 @@ export class Checkmango {
      *
      * @returns {Object} JSON
      */
-    async listVariants({ experiment, ...params }: ListVariantsOptions): Promise<VariantsResponse> {
+    async listVariants({
+        experiment,
+        ...params
+    }: ListVariantsOptions): Promise<VariantsResponse> {
         return this._query({
-            path: `teams/${this.teamId}/experiments/${experiment}/variants`,
+            path: `organizations/${encodeURIComponent(this.organizationId)}/experiments/${encodeURIComponent(experiment)}/variants`,
             params: this._buildParams(params),
         });
     }
@@ -434,14 +497,18 @@ export class Checkmango {
      *
      * @param {Object} [params]
      * @param {String} [params.experiment] The key of experiment the variant belongs to.
-     * @param {Number} [params.key] The key of the variant to retrieve.
+     * @param {String} [params.key] The key of the variant to retrieve.
      * @param {Array} [params.include] The relationships to include in the response.
      *
      * @returns {Object} JSON
      */
-    async getVariant({ experiment, key, ...params }: GetVariantOptions): Promise<VariantResponse> {
+    async getVariant({
+        experiment,
+        key,
+        ...params
+    }: GetVariantOptions): Promise<VariantResponse> {
         return this._query({
-            path: `teams/${this.teamId}/experiments/${experiment}/variants/${key}`,
+            path: `organizations/${encodeURIComponent(this.organizationId)}/experiments/${encodeURIComponent(experiment)}/variants/${encodeURIComponent(key)}`,
             params: this._buildParams(params),
         });
     }
@@ -457,12 +524,15 @@ export class Checkmango {
      *
      * @returns {Object} JSON
      */
-    async createVariant({ experiment, ...params}: CreateVariantOptions): Promise<VariantResponse> {
+    async createVariant({
+        experiment,
+        ...params
+    }: CreateVariantOptions): Promise<VariantResponse> {
         return this._query({
-            method: 'POST',
-            path: `teams/${this.teamId}/experiments/${experiment}/variants`,
+            method: "POST",
+            path: `organizations/${encodeURIComponent(this.organizationId)}/experiments/${encodeURIComponent(experiment)}/variants`,
             payload: params,
-        })
+        });
     }
 
     /**
@@ -477,12 +547,16 @@ export class Checkmango {
      *
      * @returns {Object} JSON
      */
-    async updateVariant({ experiment, variant, ...params }: UpdateVariantOptions): Promise<ExperimentResponse> {
+    async updateVariant({
+        experiment,
+        variant,
+        ...params
+    }: UpdateVariantOptions): Promise<VariantResponse> {
         return this._query({
-            method: 'PUT',
-            path: `teams/${this.teamId}/experiments/${experiment}/variants/${variant}`,
+            method: "PUT",
+            path: `organizations/${encodeURIComponent(this.organizationId)}/experiments/${encodeURIComponent(experiment)}/variants/${encodeURIComponent(variant)}`,
             payload: params,
-        })
+        });
     }
 
     /**
@@ -494,14 +568,15 @@ export class Checkmango {
      *
      * @returns {Object} JSON
      */
-    async deleteVariant({ experiment, variant }: DeleteVariantOptions): Promise<void> {
+    async deleteVariant({
+        experiment,
+        variant,
+    }: DeleteVariantOptions): Promise<void> {
         return this._query({
-            method: 'DELETE',
-            path: `teams/${this.teamId}/experiments/${experiment}/variants/${variant}`,
-        })
+            method: "DELETE",
+            path: `organizations/${encodeURIComponent(this.organizationId)}/experiments/${encodeURIComponent(experiment)}/variants/${encodeURIComponent(variant)}`,
+        });
     }
-
-    ///
 
     /**
      * List events.
@@ -511,9 +586,9 @@ export class Checkmango {
      *
      * @returns {Object} JSON
      */
-    async listEvents(params: ListEventsOptions): Promise<EventsResponse> {
+    async listEvents(params: ListEventsOptions = {}): Promise<EventsResponse> {
         return this._query({
-            path: `teams/${this.teamId}/events`,
+            path: `organizations/${encodeURIComponent(this.organizationId)}/events`,
             params: this._buildParams(params),
         });
     }
@@ -522,14 +597,17 @@ export class Checkmango {
      * Get an event.
      *
      * @param {Object} [params]
-     * @param {Number} [params.key] The key of the event to retrieve.
+     * @param {String} [params.key] The key of the event to retrieve.
      * @param {Array} [params.include] The relationships to include in the response.
      *
      * @returns {Object} JSON
      */
-    async getEvent({ key, ...params }: GetVariantOptions): Promise<VariantResponse> {
+    async getEvent({
+        key,
+        ...params
+    }: GetEventOptions): Promise<EventResponse> {
         return this._query({
-            path: `teams/${this.teamId}/events/${key}`,
+            path: `organizations/${encodeURIComponent(this.organizationId)}/events/${encodeURIComponent(key)}`,
             params: this._buildParams(params),
         });
     }
@@ -546,10 +624,10 @@ export class Checkmango {
      */
     async createEvent(params: CreateEventOptions): Promise<EventResponse> {
         return this._query({
-            method: 'POST',
-            path: `teams/${this.teamId}/events`,
+            method: "POST",
+            path: `organizations/${encodeURIComponent(this.organizationId)}/events`,
             payload: params,
-        })
+        });
     }
 
     /**
@@ -563,12 +641,15 @@ export class Checkmango {
      *
      * @returns {Object} JSON
      */
-    async updateEvent({ event, ...params }: UpdateEventOptions): Promise<EventResponse> {
+    async updateEvent({
+        event,
+        ...params
+    }: UpdateEventOptions): Promise<EventResponse> {
         return this._query({
-            method: 'PUT',
-            path: `teams/${this.teamId}/events/${event}`,
+            method: "PUT",
+            path: `organizations/${encodeURIComponent(this.organizationId)}/events/${encodeURIComponent(event)}`,
             payload: params,
-        })
+        });
     }
 
     /**
@@ -581,15 +662,158 @@ export class Checkmango {
      */
     async deleteEvent({ key }: DeleteEventOptions): Promise<void> {
         return this._query({
-            method: 'DELETE',
-            path: `teams/${this.teamId}/events/${key}`,
-        })
+            method: "DELETE",
+            path: `organizations/${encodeURIComponent(this.organizationId)}/events/${encodeURIComponent(key)}`,
+        });
+    }
+
+    async listOrganizations(
+        params: ListOrganizationsOptions = {},
+    ): Promise<OrganizationsResponse> {
+        return this.listTeams(params);
+    }
+
+    async getOrganization(
+        params: GetOrganizationOptions,
+    ): Promise<OrganizationResponse> {
+        return this.getTeam(params);
+    }
+
+    async getCurrentOrganization(): Promise<OrganizationResponse> {
+        return this.getCurrentTeam();
+    }
+
+    async getOrganizationConfig(): Promise<OrganizationConfigResponse> {
+        return this._query({
+            path: `organizations/${encodeURIComponent(this.organizationId)}/config`,
+        });
+    }
+
+    async listParticipantExperiments({
+        participant,
+        ...params
+    }: ListParticipantExperimentsOptions): Promise<EnrollmentsResponse> {
+        return this._query({
+            path: `organizations/${encodeURIComponent(this.organizationId)}/participants/${encodeURIComponent(participant)}/experiments`,
+            params: this._buildParams(params),
+        });
+    }
+
+    async getParticipantExperiment({
+        participant,
+        experiment,
+        ...params
+    }: GetParticipantExperimentOptions): Promise<ExperimentResponse> {
+        return this._query({
+            path: `organizations/${encodeURIComponent(this.organizationId)}/participants/${encodeURIComponent(participant)}/experiments/${encodeURIComponent(experiment)}`,
+            params: this._buildParams(params),
+        });
+    }
+
+    async unenrolParticipant({
+        participant,
+        experiment,
+    }: UnenrolParticipantOptions): Promise<void> {
+        return this._query({
+            method: "DELETE",
+            path: `organizations/${encodeURIComponent(this.organizationId)}/participants/${encodeURIComponent(participant)}/experiments/${encodeURIComponent(experiment)}`,
+        });
+    }
+
+    async listParticipantAttributes({
+        participant,
+        ...params
+    }: ListParticipantAttributesOptions): Promise<ParticipantAttributesResponse> {
+        return this._query({
+            path: `organizations/${encodeURIComponent(this.organizationId)}/participants/${encodeURIComponent(participant)}/attributes`,
+            params: this._buildParams(params, ["attribute.key"]),
+        });
+    }
+
+    async updateParticipantAttributes({
+        participant,
+        ...params
+    }: UpdateParticipantAttributesOptions): Promise<ParticipantAttributesResponse> {
+        return this._query({
+            method: "PUT",
+            path: `organizations/${encodeURIComponent(this.organizationId)}/participants/${encodeURIComponent(participant)}/attributes`,
+            payload: params,
+        });
+    }
+
+    async deleteParticipantAttributes({
+        participant,
+        ...params
+    }: DeleteParticipantAttributesOptions): Promise<ParticipantAttributesResponse> {
+        return this._query({
+            method: "DELETE",
+            path: `organizations/${encodeURIComponent(this.organizationId)}/participants/${encodeURIComponent(participant)}/attributes`,
+            payload: params,
+        });
+    }
+
+    async getVariantStatistics({
+        experiment,
+        key,
+        ...params
+    }: GetVariantStatisticsOptions): Promise<VariantStatisticResponse> {
+        return this._query({
+            path: `organizations/${encodeURIComponent(this.organizationId)}/experiments/${encodeURIComponent(experiment)}/variants/${encodeURIComponent(key)}/statistics`,
+            params: this._buildParams(params),
+        });
+    }
+
+    async listFeatures(
+        params: ListFeaturesOptions = {},
+    ): Promise<FeaturesResponse> {
+        return this._query({
+            path: `organizations/${encodeURIComponent(this.organizationId)}/features`,
+            params: this._buildParams(params),
+        });
+    }
+
+    async getFeature({
+        key,
+        ...params
+    }: GetFeatureOptions): Promise<FeatureResponse> {
+        return this._query({
+            path: `organizations/${encodeURIComponent(this.organizationId)}/features/${encodeURIComponent(key)}`,
+            params: this._buildParams(params),
+        });
+    }
+
+    async createFeature(
+        params: CreateFeatureOptions,
+    ): Promise<FeatureResponse> {
+        return this._query({
+            method: "POST",
+            path: `organizations/${encodeURIComponent(this.organizationId)}/features`,
+            payload: params,
+        });
+    }
+
+    async updateFeature({
+        feature,
+        ...params
+    }: UpdateFeatureOptions): Promise<FeatureResponse> {
+        return this._query({
+            method: "PUT",
+            path: `organizations/${encodeURIComponent(this.organizationId)}/features/${encodeURIComponent(feature)}`,
+            payload: params,
+        });
+    }
+
+    async deleteFeature({ key }: DeleteFeatureOptions): Promise<void> {
+        return this._query({
+            method: "DELETE",
+            path: `organizations/${encodeURIComponent(this.organizationId)}/features/${encodeURIComponent(key)}`,
+        });
     }
 
     /**
      * Get the health of the API.
      */
-    async health(): Promise<void> {
+    async health(): Promise<HealthResponse> {
         return this._query({
             path: "health",
         });
@@ -597,3 +821,6 @@ export class Checkmango {
 }
 
 export default Checkmango;
+export { CheckmangoError } from "./error";
+export type * from "./types/api";
+export type * from "./types/methods";

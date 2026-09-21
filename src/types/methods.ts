@@ -12,7 +12,7 @@ export interface QueryApiOptions {
     /**
      * Any query parameters to add to the request.
      */
-    params?: unknown;
+    params?: Record<string, string>;
     /**
      * Any data to send in the request body.
      */
@@ -30,40 +30,44 @@ export interface PaginatedOptions {
     page?: number;
 }
 
-export interface ListTeamsOptions extends PaginatedOptions {
+export interface ListOrganizationsOptions extends PaginatedOptions {
     /**
      * List of record types to include.
      */
-    include?: Array<"events" | "experiments" | "experiments.variants" | "participants">;
+    include?: Array<
+        "events" | "experiments" | "experiments.variants" | "participants"
+    >;
 
     /**
      * List of sorts available.
      */
-    sort?: Array<"id" | "created_at">;
+    sort?: Array<"id" | "created_at" | "-id" | "-created_at">;
 }
 
-export interface GetTeamOptions {
+export interface GetOrganizationOptions {
     /**
-     * The ID of the team to retrieve.
+     * The ID of the organization to retrieve.
      */
-    id: number;
+    id: number | string;
 
     /**
      * List of record types to include.
      */
-    include?: Array<"events" | "experiments" | "experiments.variants" | "participants">;
+    include?: Array<
+        "events" | "experiments" | "experiments.variants" | "participants"
+    >;
 }
 
 export interface ListEventsOptions extends PaginatedOptions {
     /**
      * List of record types to include.
      */
-    include?: Array<"experiments" | "team">;
+    include?: Array<"experiments" | "organization" | "team">;
 
     /**
      * List of sorts available.
      */
-    sort?: Array<"id" | "key" | "created_at">;
+    sort?: Array<"id" | "key" | "created_at" | "-id" | "-key" | "-created_at">;
 }
 
 export interface GetEventOptions {
@@ -75,7 +79,7 @@ export interface GetEventOptions {
     /**
      * List of record types to include.
      */
-    include?: Array<"experiments" | "team">;
+    include?: Array<"experiments" | "organization" | "team">;
 }
 
 export interface CreateEventOptions {
@@ -87,12 +91,15 @@ export interface CreateEventOptions {
     /**
      * The description of the event.
      */
-    description?: string;
+    description?: string | null;
 
     /**
      * The type of event.
      */
-    type?: "unique" | "count";
+    type: "unique" | "count";
+    is_revenue?: boolean;
+    improvement_direction?: "higher" | "lower";
+    is_guardrail?: boolean;
 }
 
 export interface UpdateEventOptions {
@@ -109,12 +116,15 @@ export interface UpdateEventOptions {
     /**
      * The new description of the event.
      */
-    description?: string;
+    description?: string | null;
 
     /**
      * The new type of event.
      */
     type?: "unique" | "count";
+    is_revenue?: boolean;
+    improvement_direction?: "higher" | "lower";
+    is_guardrail?: boolean;
 }
 
 export interface DeleteEventOptions {
@@ -128,12 +138,12 @@ export interface ListExperimentsOptions extends PaginatedOptions {
     /**
      * List of record types to include.
      */
-    include?: Array<"event" | "team" | "variants">;
+    include?: Array<"event" | "organization" | "team" | "variants">;
 
     /**
      * List of sorts available.
      */
-    sort?: Array<"id" | "key" | "created_at">;
+    sort?: Array<"id" | "key" | "created_at" | "-id" | "-key" | "-created_at">;
 
     /**
      * Filter by status.
@@ -150,10 +160,10 @@ export interface GetExperimentOptions {
     /**
      * List of record types to include.
      */
-    include?: Array<"event" | "team" | "variants">;
+    include?: Array<"event" | "organization" | "team" | "variants">;
 }
 
-export interface CreateExperimentOptions {
+export interface ExperimentInput {
     /**
      * The key of the experiment.
      */
@@ -162,13 +172,18 @@ export interface CreateExperimentOptions {
     /**
      * The description of the experiment.
      */
-    description?: string;
+    description?: string | null;
 
-    /**
-     * The event to use.
-     */
-    event: string;
+    /** @deprecated Use event_key. */
+    event?: string;
+    event_key?: string;
 }
+
+export type CreateExperimentOptions = ExperimentInput &
+    (
+        | { event_key: string; event?: string }
+        | { event: string; event_key?: string }
+    );
 
 export interface UpdateExperimentOptions {
     /**
@@ -184,12 +199,14 @@ export interface UpdateExperimentOptions {
     /**
      * The new description of the experiment.
      */
-    description?: string;
+    description?: string | null;
 
     /**
      * The new event to use.
      */
     event?: string;
+    event_key?: string;
+    algorithm_type?: "blockRandomization" | "weightedSample" | "whiplash";
 }
 
 export interface DeleteExperimentOptions {
@@ -222,12 +239,12 @@ export interface ListVariantsOptions extends PaginatedOptions {
     /**
      * List of record types to include.
      */
-    include?: Array<"experiment" | "team">;
+    include?: Array<"experiment" | "organization" | "team">;
 
     /**
      * List of sorts available.
      */
-    sort?: Array<"id" | "key" | "created_at">;
+    sort?: Array<"id" | "key" | "created_at" | "-id" | "-key" | "-created_at">;
 }
 
 export interface GetVariantOptions {
@@ -244,7 +261,7 @@ export interface GetVariantOptions {
     /**
      * List of record types to include.
      */
-    include?: Array<"experiment" | "team">;
+    include?: Array<"experiment" | "organization" | "team">;
 }
 
 export interface CreateVariantOptions {
@@ -261,12 +278,13 @@ export interface CreateVariantOptions {
     /**
      * The description of the variant.
      */
-    description?: string;
+    description?: string | null;
 
     /**
      * Whether the variant is the control.
      */
-    control: boolean;
+    control?: boolean;
+    traffic?: number;
 }
 
 export interface UpdateVariantOptions {
@@ -283,17 +301,18 @@ export interface UpdateVariantOptions {
     /**
      * The new key of the variant.
      */
-    key: string;
+    key?: string;
 
     /**
      * The new description of the variant.
      */
-    description?: string;
+    description?: string | null;
 
     /**
      * Whether the variant is the control.
      */
     control?: boolean;
+    traffic?: number;
 }
 
 export interface DeleteVariantOptions {
@@ -312,12 +331,18 @@ export interface ListParticipantsOptions extends PaginatedOptions {
     /**
      * List of record types to include.
      */
-    include?: Array<"experiments" | "experiments.variants" | "team">;
+    include?: Array<
+        | "attributes"
+        | "experiments"
+        | "experiments.variants"
+        | "organization"
+        | "team"
+    >;
 
     /**
      * List of sorts available.
      */
-    sort?: Array<"id" | "key" | "created_at">;
+    sort?: Array<"id" | "key" | "created_at" | "-id" | "-key" | "-created_at">;
 }
 
 export interface GetParticipantOptions {
@@ -329,7 +354,13 @@ export interface GetParticipantOptions {
     /**
      * List of record types to include.
      */
-    include?: Array<"experiments" | "experiments.variants" | "team">;
+    include?: Array<
+        | "attributes"
+        | "experiments"
+        | "experiments.variants"
+        | "organization"
+        | "team"
+    >;
 }
 
 export interface CreateParticipantOptions {
@@ -341,7 +372,8 @@ export interface CreateParticipantOptions {
     /**
      * The participant notes.
      */
-    notes?: string;
+    notes?: string | null;
+    attributes?: Record<string, import("./api").JsonValue> | null;
 }
 
 export interface UpdateParticipantOptions {
@@ -358,7 +390,7 @@ export interface UpdateParticipantOptions {
     /**
      * The new description of the participant.
      */
-    notes?: string;
+    notes?: string | null;
 }
 
 export interface DeleteParticipantOptions {
@@ -377,12 +409,12 @@ export interface ListParticipantExperimentsOptions extends PaginatedOptions {
     /**
      * List of record types to include.
      */
-    include?: Array<"experiment" | "team" | "variant">;
+    include?: Array<"experiment" | "organization" | "team" | "variant">;
 
     /**
      * List of sorts available.
      */
-    sort?: Array<"id" | "key" | "created_at">;
+    sort?: Array<"id" | "time" | "-id" | "-time">;
 }
 
 export interface GetParticipantExperimentOptions {
@@ -399,7 +431,7 @@ export interface GetParticipantExperimentOptions {
     /**
      * List of record types to include.
      */
-    include?: Array<"variant">;
+    include?: Array<"organization">;
 }
 
 export interface UnenrolParticipantOptions {
@@ -412,4 +444,49 @@ export interface UnenrolParticipantOptions {
      * The key of the experiment to unenroll from.
      */
     experiment: string;
+}
+/** @deprecated Use ListOrganizationsOptions. */
+export type ListTeamsOptions = ListOrganizationsOptions;
+/** @deprecated Use GetOrganizationOptions. */
+export type GetTeamOptions = GetOrganizationOptions;
+export interface ListFeaturesOptions extends PaginatedOptions {
+    include?: Array<"organization">;
+    sort?: Array<"id" | "key" | "created_at" | "-id" | "-key" | "-created_at">;
+}
+export interface GetFeatureOptions {
+    key: string;
+    include?: Array<"organization">;
+}
+export interface CreateFeatureOptions {
+    key: string;
+    description?: string | null;
+    enabled?: boolean;
+    value?: string | null;
+    format?: "text";
+}
+export interface UpdateFeatureOptions
+    extends Partial<Omit<CreateFeatureOptions, "key">> {
+    feature: string;
+}
+export interface DeleteFeatureOptions {
+    key: string;
+}
+export interface ListParticipantAttributesOptions extends PaginatedOptions {
+    participant: string;
+    "attribute.key"?: string;
+    sort?: Array<"attribute.key" | "value" | "-attribute.key" | "-value">;
+}
+export interface UpdateParticipantAttributesOptions {
+    participant: string;
+    attributes: Array<{ key: string; value: import("./api").JsonValue }>;
+}
+export interface DeleteParticipantAttributesOptions {
+    participant: string;
+    attribute?: string;
+}
+export interface GetVariantStatisticsOptions {
+    experiment: string;
+    key: string;
+    event_key?: string;
+    include?: Array<"organization" | "experiment" | "variant" | "event">;
 }

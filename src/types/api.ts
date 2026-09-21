@@ -1,386 +1,192 @@
-interface BaseListResponse {
-    meta: object;
-    jsonapi: {
-        version: "1.0";
-    };
-    links: object;
-    included?: Record<string, any>;
+export type JsonValue =
+    | string
+    | number
+    | boolean
+    | null
+    | JsonValue[]
+    | { [key: string]: JsonValue };
+export interface ApiTimestamp {
+    human: string | null;
+    string: string | null;
 }
-
-interface BaseIndividualResponse {
-    jsonapi: {
-        version: "1.0";
-    };
-    links: object;
-    included?: Record<string, any>;
-}
-
-interface BaseApiObject {
+export interface ApiResource<T = Record<string, unknown>> {
     type: string;
     id: string;
-    relationships: object;
-    links: object;
+    attributes: T;
+    relationships?: Record<string, unknown>;
+    links?: Record<string, unknown>;
 }
-
-interface UserAttributes {
-    /**
-     * The name of the user.
-     */
-    name: string;
-
-    /**
-     * The email of the user.
-     */
-    email: string;
+export interface ApiResponse<T> {
+    data: T;
+    jsonapi?: { version: string };
+    links?: Record<string, unknown>;
+    meta?: Record<string, unknown>;
+    included?: ApiResource[];
 }
-
-interface UserObject extends BaseApiObject {
-    attributes: UserAttributes;
+interface Timestamps {
+    created: ApiTimestamp;
+    updated: ApiTimestamp;
 }
-
-export interface UserResponse extends BaseIndividualResponse {
-    data: UserObject;
-}
-
-interface TeamAttributes {
-    /**
-     * The ID of the team.
-     */
+interface OrganizationAttributes extends Timestamps {
     id: number;
-
-    /**
-     * The name of the team.
-     */
     name: string;
-
-    /**
-     * The number of events the team has.
-     */
-    event_count: number | null;
-
-    /**
-     * The number of experiments the team has.
-     */
-    experiment_count: number | null;
-
-    /**
-     * The number of participants the team has.
-     */
-    participant_count: number | null;
-
-    /**
-     * Whether the team is on a free plan.
-     */
+    slug: string;
+    events_count: number | null;
+    experiments_count: number | null;
+    participants_count: number | null;
     is_free: boolean;
-
-    /**
-     * The number of API requests the team has made in this billing period.
-     */
     api_requests: number | null;
-
-    /**
-     * When the team was created.
-     */
-    created: {
-        human: string;
-        string: string;
-    };
-
-    /**
-     * When the team was last updated.
-     */
-    updated: {
-        human: string;
-        string: string;
-    };
 }
-
-interface TeamObject extends BaseApiObject {
-    attributes: TeamAttributes;
-}
-
-export interface TeamsResponse extends BaseListResponse {
-    data: TeamObject[]
-}
-
-export interface TeamResponse extends BaseIndividualResponse {
-    data: TeamObject;
-}
-
-export interface IngestOptions {
-    /**
-     * The experiment to ingest the data into.
-     */
-    experiment: string;
-
-    /**
-     * The participant to ingest the data into.
-     */
-    participant: string;
-
-    /**
-     * The variant to ingest the data into.
-     */
-    variant: string;
-
-    /**
-     * The event to ingest the data into.
-     */
-    event?: string;
-}
-
-interface EventAttributes {
-    /**
-     * The id of the event.
-     */
+interface KeyedAttributes extends Timestamps {
     id: number;
-
-    /**
-     * The key of the event.
-     */
+    organization_id: number;
     key: string;
-
-    /**
-     * The team id of the event.
-     */
-    team_id: number;
-
-    /**
-     * The description of the event.
-     */
-    description: string;
-
-    /**
-     * The type of event.
-     */
+}
+interface EventAttributes extends KeyedAttributes {
+    description: string | null;
     type: "count" | "unique";
-
-    /**
-     * The date the event was created.
-     */
-    created: {
-        human: string;
-        string: string;
-    };
-
-    /**
-     * The date the event was last updated.
-     */
-    updated: {
-        human: string;
-        string: string;
-    };
+    is_revenue: boolean;
+    improvement_direction: "higher" | "lower";
+    is_guardrail: boolean;
 }
-
-interface EventObject extends BaseApiObject {
-    attributes: EventAttributes;
+export type ExperimentStatus = "draft" | "running" | "stopped";
+interface ExperimentAttributes extends KeyedAttributes {
+    description: string | null;
+    status: ExperimentStatus;
+    started: ApiTimestamp;
+    stopped: ApiTimestamp;
 }
-
-export interface EventsResponse extends BaseListResponse {
-    data: EventObject[]
-}
-
-export interface EventResponse extends BaseIndividualResponse {
-    data: EventObject;
-}
-
-interface ExperimentAttributes {
-    /**
-     * The id of the experiment.
-     */
-    id: number;
-
-    /**
-     * The key of the experiment.
-     */
-    key: string;
-
-    /**
-     * The team id of the experiment.
-     */
-    team_id: number;
-
-    /**
-     * The description of the experiment.
-     */
-    description: string;
-
-    /**
-     * The status of the experiment.
-     */
-    status: "draft" | "running" | "stopped";
-
-    /**
-     * The date the experiment was created.
-     */
-    created: {
-        human: string;
-        string: string;
-    };
-
-    /**
-     * The date the experiment was last updated.
-     */
-    updated: {
-        human: string;
-        string: string;
-    };
-
-    /**
-     * The date the experiment was started.
-     */
-    started: {
-        human: string;
-        string: string;
-    };
-
-    /**
-     * The date the experiment was stopped.
-     */
-    stopped: {
-        human: string;
-        string: string;
-    };
-}
-
-interface ExperimentObject extends BaseApiObject {
-    attributes: ExperimentAttributes;
-}
-
-export interface ExperimentsResponse extends BaseListResponse {
-    data: ExperimentObject[]
-}
-
-export interface ExperimentResponse extends BaseIndividualResponse {
-    data: ExperimentObject;
-}
-
-interface VariantAttributes {
-    /**
-     * The id of the variant.
-     */
-    id: number;
-
-    /**
-     * The key of the variant.
-     */
-    key: string;
-
-    /**
-     * The team id of the variant.
-     */
-    team_id: number;
-
-    /**
-     * The description of the variant.
-     */
-    description: string;
-
-    /**
-     * Whether the variant is the control.
-     */
+interface VariantAttributes extends KeyedAttributes {
+    description: string | null;
     control: boolean;
-
-    /**
-     * The conversion rate of the variant.
-     */
-    conversion_rate: number;
-
-    /**
-     * The power of the variant.
-     */
-    power: number;
-
-    /**
-     * The z-score of the variant.
-     */
-    z_score: number;
-
-    /**
-     * The p-value of the variant.
-     */
-    p_value: number;
-
-    /**
-     * The uplift of the variant.
-     */
-    uplift: number;
-
-    /**
-     * The date the variant was created.
-     */
-    created: {
-        human: string;
-        string: string;
-    };
-
-    /**
-     * The date the variant was last updated.
-     */
-    updated: {
-        human: string;
-        string: string;
-    };
 }
-
-interface VariantObject extends BaseApiObject {
-    attributes: VariantAttributes;
+interface ParticipantAttributes extends KeyedAttributes {
+    notes: string | null;
+    blocked: boolean;
+    blocked_at: string | null;
+    attributes?: Record<string, JsonValue> | [];
+    enrollments?: Record<string, string> | [];
 }
-
-export interface VariantsResponse extends BaseListResponse {
-    data: VariantObject[]
+interface FeatureAttributes extends KeyedAttributes {
+    description: string | null;
+    enabled: boolean;
+    value: string | null;
+    format: "text";
 }
-
-export interface VariantResponse extends BaseIndividualResponse {
-    data: VariantObject;
-}
-
-interface ParticipantAttributes {
-    /**
-     * The id of the participant.
-     */
+interface ParticipantAttributeAttributes extends Timestamps {
     id: number;
-
-    /**
-     * The key of the participant.
-     */
+    organization_id: number;
+    participant_id: number;
+    participant_key?: string;
     key: string;
-
-    /**
-     * The team id of the participant.
-     */
-    team_id: number;
-
-    /**
-     * The notes of the participant.
-     */
-    notes: string;
-
-    /**
-     * The date the participant was created.
-     */
-    created: {
-        human: string;
-        string: string;
-    };
-
-    /**
-     * The date the participant was last updated.
-     */
-    updated: {
-        human: string;
-        string: string;
-    };
+    value: JsonValue;
 }
-
-interface ParticipantObject extends BaseApiObject {
-    attributes: ParticipantAttributes;
+interface VariantStatisticAttributes extends Timestamps {
+    organization_id: number;
+    experiment_id: number;
+    variant_id: number;
+    event_id: number;
+    count_conversion_rate: number | null;
+    unique_conversion_rate: number | null;
+    power: number | null;
+    z_score: number | null;
+    p_value: number | null;
+    confidence: number | null;
+    uplift: number | null;
 }
-
-export interface ParticipantsResponse extends BaseListResponse {
-    data: ParticipantObject[]
+export interface OrganizationConfigAttributes {
+    organization_id: number;
+    features: Record<
+        string,
+        { enabled: boolean; value: string | null; format: "text" }
+    >;
+    features_revision: string;
+    experiments:
+        | Record<
+              string,
+              {
+                  endpoint: string;
+                  algorithm:
+                      | "blockRandomization"
+                      | "weightedSample"
+                      | "whiplash";
+                  status: ExperimentStatus;
+                  variant_count: number;
+                  total_participants: number;
+                  timeline: {
+                      created_at: string | null;
+                      updated_at: string | null;
+                      started_at: string | null;
+                      stopped_at: string | null;
+                  };
+                  variants:
+                      | Record<
+                            string,
+                            {
+                                control: boolean;
+                                participants: number;
+                                impressions: number;
+                                conversions: number;
+                            }
+                        >
+                      | [];
+              }
+          >
+        | [];
 }
-
-export interface ParticipantResponse extends BaseIndividualResponse {
-    data: ParticipantObject;
+export interface IngestOptions {
+    experiment: string;
+    participant: string;
+    variant: string;
+    event?: string | null;
+    eventValue?: number;
 }
+export interface HealthResponse {
+    ping: "pong";
+    time: string;
+}
+export type UserResponse = ApiResponse<
+    ApiResource<{ name: string; email: string }>
+>;
+export type OrganizationResponse = ApiResponse<
+    ApiResource<OrganizationAttributes>
+>;
+export type OrganizationsResponse = ApiResponse<
+    ApiResource<OrganizationAttributes>[]
+>;
+/** @deprecated Use OrganizationResponse. */
+export type TeamResponse = OrganizationResponse;
+/** @deprecated Use OrganizationsResponse. */
+export type TeamsResponse = OrganizationsResponse;
+export type OrganizationConfigResponse = ApiResponse<
+    ApiResource<OrganizationConfigAttributes>
+>;
+export type EventResponse = ApiResponse<ApiResource<EventAttributes>>;
+export type EventsResponse = ApiResponse<ApiResource<EventAttributes>[]>;
+export type ExperimentResponse = ApiResponse<ApiResource<ExperimentAttributes>>;
+export type ExperimentsResponse = ApiResponse<
+    ApiResource<ExperimentAttributes>[]
+>;
+export type VariantResponse = ApiResponse<ApiResource<VariantAttributes>>;
+export type VariantsResponse = ApiResponse<ApiResource<VariantAttributes>[]>;
+export type ParticipantResponse = ApiResponse<
+    ApiResource<ParticipantAttributes>
+>;
+export type ParticipantsResponse = ApiResponse<
+    ApiResource<ParticipantAttributes>[]
+>;
+export type FeatureResponse = ApiResponse<ApiResource<FeatureAttributes>>;
+export type FeaturesResponse = ApiResponse<ApiResource<FeatureAttributes>[]>;
+export type ParticipantAttributesResponse = ApiResponse<
+    ApiResource<ParticipantAttributeAttributes>[]
+>;
+export type VariantStatisticResponse = ApiResponse<
+    ApiResource<VariantStatisticAttributes>
+>;
+export type EnrollmentsResponse = ApiResponse<
+    ApiResource<{
+        experiment_key: string;
+        variant_key: string;
+        time: ApiTimestamp;
+    }>[]
+>;
