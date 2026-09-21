@@ -9,7 +9,7 @@
   "homepage": "https://github.com/checkmango/checkmango.js",
   "repository": {
     "type": "git",
-    "url": "https://github.com/checkmango/checkmango.js.git"
+    "url": "git+https://github.com/checkmango/checkmango.js.git"
   },
   "bugs": {
     "url": "https://github.com/checkmango/checkmango.js/issues"

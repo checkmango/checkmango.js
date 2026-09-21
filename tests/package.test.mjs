@@ -8,9 +8,10 @@ import { test } from "node:test";
 test("published archive supports ESM, CommonJS and their TypeScript declarations", () => {
     const directory = mkdtempSync(join(tmpdir(), "checkmango-package-"));
     try {
+        // Publishing dry runs still need a real local archive for this test.
         const filename = execFileSync(
             "npm",
-            ["pack", "--silent", "--pack-destination", directory],
+            ["pack", "--dry-run=false", "--silent", "--pack-destination", directory],
             { encoding: "utf8" },
         )
             .trim()
